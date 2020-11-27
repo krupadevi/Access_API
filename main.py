@@ -3,8 +3,6 @@
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import json
-
-import spotipy
 import sqlite3 , requests
 
 CLIENT_ID = '1bc8d28430a54a489afccd025e285f61'
@@ -13,10 +11,6 @@ CLIENT_SECRET = '6963aaeddb1848eab5de861e4a836143'
 conn = sqlite3.connect('users.sqlite')
 cur = conn.cursor()
 
-#cur.execute('CREATE TABLE V(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)')
-#cur.execute('INSERT INTO V(name, email) VALUES(?, ?)', ('homer', 'homer@simpson.com'))
-#conn.commit()
-#cur.close()
 
 def create_tables():
     cur.execute('CREATE TABLE IF NOT EXISTS Artists(id TEXT PRIMARY KEY , name TEXT, followers INTEGER,popularity INTEGER )')
@@ -54,18 +48,25 @@ def table_populating():
 
     artists=t.json()['artists']
 
+    # Insert Artists info to table
+
     table_rows=[(i["id"],i["name"],i["followers"]["total"],i["popularity"]) for i in artists]
     sql_statement = 'INSERT INTO Artists VALUES (?, ?, ?, ?)'
 
     cur.executemany(sql_statement, table_rows)
 
+    # Get Albums Info
+
     for i in artists:
         r = requests.get(BASE_URL + 'artists/' + i["id"] + '/albums',headers=headers,params={'include_groups': 'album', 'limit': 20})
         albums=r.json()['items']
+
+        # Insert Albums info to table
         table_rows = [(j["id"], j["name"], j["release_date"]) for j in albums]
         sql_statement = 'INSERT INTO Albums VALUES (?, ?, ?)'
         cur.executemany(sql_statement, table_rows)
 
+        # Insert Artists_Albums mapping info to table
         table_rows = [(i["id"], j["id"]) for j in albums]
         sql_statement = 'INSERT INTO Artists_Albums VALUES (?, ?)'
         cur.executemany(sql_statement, table_rows)
@@ -74,10 +75,12 @@ def table_populating():
             s = requests.get(BASE_URL + 'albums/' + j["id"] + '/tracks', headers=headers)
             tracks = s.json()['items']
 
+            # Insert Tracks info to table
             table_rows = [(s["id"], s["name"], j["id"],s["duration_ms"]) for s in tracks]
             sql_statement = 'INSERT INTO Tracks VALUES (?, ?, ?,?)'
             cur.executemany(sql_statement, table_rows)
 
+            # Insert Artists_Tracks mapping info to table
             table_rows = [(i["id"], s["id"]) for s in tracks]
             sql_statement = 'INSERT INTO Artists_Tracks VALUES (?, ?)'
             cur.executemany(sql_statement, table_rows)
